@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/home"
+        android:icon="@drawable/ic_home_outline"
+        android:iconTint="?attr/colorPrimary"
+        android:title="Home"
+        app:cnb_backgroundColor="@color/gold"
+        app:cnb_iconColor="?attr/colorPrimary" />
+
+    <item
+        android:id="@+id/addPost"
+        android:icon="@drawable/ic_add_post_outline"
+        android:iconTint="?attr/colorPrimary"
+        android:title="New Post"
+        app:cnb_backgroundColor="@color/gold"
+        app:cnb_iconColor="?attr/colorPrimary" />
+
+</menu>
