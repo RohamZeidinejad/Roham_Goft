@@ -10,7 +10,7 @@ import com.shahpourkhast.rohamgoft.databinding.PostItemBinding
 
 class PostsAdapter : ListAdapter<PostsData, PostsAdapter.MovieViewHolder>(PostsDiffCallback()) {
 
-    var onItemClick: ((PostsData) -> Unit)? = null
+    var onPostClick: ((PostsData) -> Unit)? = null
 
     var onPostLongClick: ((PostsData) -> Unit)? = null
 
@@ -24,7 +24,9 @@ class PostsAdapter : ListAdapter<PostsData, PostsAdapter.MovieViewHolder>(PostsD
             //-----------------------------------------------------------
 
             itemView.setOnClickListener {
-                onItemClick?.invoke(getItem(adapterPosition))
+
+                onPostClick?.invoke(getItem(adapterPosition))
+
             }
 
             //-----------------------------------------------------------

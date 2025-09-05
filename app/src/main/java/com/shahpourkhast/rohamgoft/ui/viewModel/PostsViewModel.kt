@@ -1,37 +1,42 @@
 package com.shahpourkhast.rohamgoft.ui.viewModel
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shahpourkhast.rohamgoft.data.model.PostsData
 import com.shahpourkhast.rohamgoft.data.repository.PostsRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class PostsViewModel : ViewModel() {
+sealed interface PostsState {
+    data object Idle : PostsState
+    data object Loading : PostsState
+    data class Success(val data: List<PostsData>) : PostsState
+    data class Error(val message: String) : PostsState
+}
 
-    private val repository = PostsRepository()
-
-    //----------------------------------------------------------------------
-
-    private val _posts = MutableLiveData<List<PostsData>>()
-    val posts: LiveData<List<PostsData>> = _posts
-
-    //----------------------------------------------------------------------
-
-    private val _createPostStatus = MutableLiveData<Boolean>()
-    val createPostStatus: LiveData<Boolean> = _createPostStatus
+@HiltViewModel
+class PostsViewModel @Inject constructor(private val repository: PostsRepository) : ViewModel() {
 
     //----------------------------------------------------------------------
 
-    private val _deletePostStatus = MutableLiveData<Boolean>()
-    val deletePostStatus: LiveData<Boolean> = _deletePostStatus
+    private val _posts = MutableStateFlow<PostsState>(PostsState.Idle)
+    val posts: StateFlow<PostsState> = _posts
 
     //----------------------------------------------------------------------
 
-    private val _isLoadingLiveData = MutableLiveData<Boolean>()
-    val isLoadingLiveData: LiveData<Boolean> = _isLoadingLiveData
+    private val _createPostStatus = MutableSharedFlow<Boolean>()
+    val createPostStatus: SharedFlow<Boolean> = _createPostStatus
+
+    //----------------------------------------------------------------------
+
+    private val _deletePostStatus = MutableSharedFlow<Boolean>()
+    val deletePostStatus: SharedFlow<Boolean> = _deletePostStatus
 
     //----------------------------------------------------------------------
 
@@ -45,20 +50,19 @@ class PostsViewModel : ViewModel() {
 
     fun getAllPosts() = viewModelScope.launch {
 
+        _posts.value = PostsState.Loading
+
         try {
 
-            _isLoadingLiveData.postValue(true)
-
             val response = repository.getAllPosts()
-            if (response.isSuccessful) _posts.postValue(response.body())
-
-            _isLoadingLiveData.postValue(false)
+            if (response.isSuccessful && response.body() != null) _posts.value = PostsState.Success(response.body()!!)
 
         } catch (e: Exception) {
 
-            Log.v("getAllPosts_error" , e.message.toString())
+            _posts.value = PostsState.Error(e.message ?: "Unknown Error!")
 
         }
+
     }
 
     //----------------------------------------------------------------------
@@ -72,20 +76,16 @@ class PostsViewModel : ViewModel() {
             val response = repository.createPost(newPost)
             if (response.isSuccessful) {
 
-                _createPostStatus.postValue(true)
+                _createPostStatus.emit(true)
 
                 getAllPosts()
 
-            } else {
-
-                Log.e("PostViewModel", "Error creating post: ${response.errorBody()?.string()}")
-                _createPostStatus.postValue(false)
-
             }
+
+
         } catch (e: Exception) {
 
-            Log.e("PostViewModel", e.message.toString())
-            _createPostStatus.postValue(false)
+            _posts.value = PostsState.Error(e.message ?: "Unknown Error!")
 
         }
 
@@ -100,20 +100,16 @@ class PostsViewModel : ViewModel() {
             val response = repository.deletePost(postId)
             if (response.isSuccessful) {
 
-                _deletePostStatus.postValue(true)
+                _deletePostStatus.emit(true)
 
                 getAllPosts()
 
-            } else {
-
-                Log.e("PostsViewModel", "Error deleting post: ${response.errorBody()?.string()}")
-                _deletePostStatus.postValue(false)
-
             }
-        } catch (e: Exception) {
+        }
+
+        catch (e: Exception) {
 
             Log.e("PostsViewModel", e.message.toString())
-            _deletePostStatus.postValue(false)
 
         }
 
@@ -121,23 +117,20 @@ class PostsViewModel : ViewModel() {
 
     //----------------------------------------------------------------------
 
-    fun updatePost(postId: String, postToUpdate: PostsData) = viewModelScope.launch {
+    fun updatePost(postId: String, post: PostsData) = viewModelScope.launch {
 
         try {
 
-            val response = repository.updatePost(postId, postToUpdate)
+            val response = repository.updatePost(postId, post)
             if (response.isSuccessful) {
 
                 getAllPosts()
 
-            } else {
-
-                Log.e("PostsViewModel", "Error updating post: ${response.errorBody()?.string()}")
-
             }
+
         } catch (e: Exception) {
 
-            Log.e("PostsViewModel", e.message.toString())
+            _posts.value = PostsState.Error(e.message ?: "Unknown Error!")
 
         }
     }

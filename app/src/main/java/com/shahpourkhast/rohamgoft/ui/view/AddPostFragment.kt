@@ -7,14 +7,19 @@ import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.shahpourkhast.rohamgoft.R
 import com.shahpourkhast.rohamgoft.data.model.PostsData
 import com.shahpourkhast.rohamgoft.databinding.CustomToastBinding
 import com.shahpourkhast.rohamgoft.databinding.FragmentAddPostBinding
 import com.shahpourkhast.rohamgoft.ui.viewModel.PostsViewModel
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class AddPostFragment : Fragment(R.layout.fragment_add_post) {
     private var _binding: FragmentAddPostBinding? = null
     private val binding get() = _binding!!
@@ -22,7 +27,7 @@ class AddPostFragment : Fragment(R.layout.fragment_add_post) {
     private var originalStatusBarColor: Int = 0
     private var isOriginalLightStatusBar: Boolean = false
     private var isEditMode = false
-    private var postIdToUpdate: String? = null
+    private var postId: String? = null
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -32,7 +37,7 @@ class AddPostFragment : Fragment(R.layout.fragment_add_post) {
 
         arguments?.let { bundle ->
             isEditMode = true
-            postIdToUpdate = bundle.getString("POST_ID")
+            postId = bundle.getString("POST_ID")
             val authorToEdit = bundle.getString("POST_AUTHOR")
             val contentToEdit = bundle.getString("POST_CONTENT")
 
@@ -56,16 +61,16 @@ class AddPostFragment : Fragment(R.layout.fragment_add_post) {
 
         binding.ersalPost.setOnClickListener {
 
-            val author = binding.author.text.toString().trim()
-            val content = binding.content.text.toString().trim()
+            val author = binding.author.text.toString()
+            val content = binding.content.text.toString()
 
             if (author.isNotBlank() && content.isNotBlank()) {
 
                 if (isEditMode) {
 
-                    val updatedPost = PostsData(id = postIdToUpdate!!, createdAt = "", author = author, content = content)
+                    val post = PostsData(id = postId!!, createdAt = "", author = author, content = content)
 
-                    viewModel.updatePost(postIdToUpdate!!, updatedPost)
+                    viewModel.updatePost(postId!!, post)
 
                     requireActivity().supportFragmentManager.beginTransaction()
                         .replace(R.id.fragmentContainerView, PostsFragment())
@@ -86,8 +91,7 @@ class AddPostFragment : Fragment(R.layout.fragment_add_post) {
 
         //----------------------------------------------------------------------------------
 
-        observeViewModel()
-
+        flowViewModel()
     }
 
     //-------------------------------------------------
@@ -146,20 +150,29 @@ class AddPostFragment : Fragment(R.layout.fragment_add_post) {
 
     //-------------------------------------------------
 
-    private fun observeViewModel() {
+    private fun flowViewModel() {
 
-        viewModel.createPostStatus.observe(viewLifecycleOwner) { isSuccess ->
+        viewLifecycleOwner.lifecycleScope.launch {
 
-            if (isSuccess) {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-                showCustomToast("پست با موفقیت ارسال شد!")
+                viewModel.createPostStatus.collect { isSuccess ->
 
-                binding.author.text.clear()
-                binding.content.text.clear()
+                    when (isSuccess) {
 
-            } else {
+                        true -> {
 
-                showCustomToast("خطا در ارسال پست")
+                            binding.author.text.clear()
+                            binding.content.text.clear()
+                            showCustomToast("پست با موفقیت ارسال شد!")
+
+                        }
+
+                        false -> showCustomToast("خطا در ارسال پست")
+
+                    }
+
+                }
 
             }
 

@@ -6,18 +6,23 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.shahpourkhast.rohamgoft.R
 import com.shahpourkhast.rohamgoft.databinding.CustomToastBinding
 import com.shahpourkhast.rohamgoft.databinding.DialogDeleteBinding
 import com.shahpourkhast.rohamgoft.databinding.FragmentPostsBinding
 import com.shahpourkhast.rohamgoft.ui.adapter.PostsAdapter
+import com.shahpourkhast.rohamgoft.ui.viewModel.PostsState
 import com.shahpourkhast.rohamgoft.ui.viewModel.PostsViewModel
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
-class PostsFragment : Fragment(R.layout.fragment_posts) {
+@AndroidEntryPoint
+class PostsFragment : androidx.fragment.app.Fragment(R.layout.fragment_posts) {
     private var _binding: FragmentPostsBinding? = null
     private val binding get() = _binding!!
     private val viewModel: PostsViewModel by viewModels()
@@ -29,10 +34,9 @@ class PostsFragment : Fragment(R.layout.fragment_posts) {
 
         setupRecyclerView()
 
-        observeViewModel()
+        flowViewModel()
 
         updatePost()
-
 
     }
 
@@ -77,7 +81,9 @@ class PostsFragment : Fragment(R.layout.fragment_posts) {
             }
 
             dialogBinding.enseraf.setOnClickListener {
+
                 dialog.dismiss()
+
             }
 
         }
@@ -88,7 +94,7 @@ class PostsFragment : Fragment(R.layout.fragment_posts) {
 
     private fun updatePost(){
 
-        postAdapter.onItemClick = { post ->
+        postAdapter.onPostClick = { post ->
 
             val fragment = AddPostFragment()
 
@@ -111,46 +117,61 @@ class PostsFragment : Fragment(R.layout.fragment_posts) {
 
     //------------------------------------------
 
-    private fun observeViewModel() {
+    private fun flowViewModel() {
 
-        viewModel.posts.observe(viewLifecycleOwner) { posts ->
+        viewLifecycleOwner.lifecycleScope.launch {
 
-            postAdapter.submitList(posts)
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-        }
+                launch {
+
+                    viewModel.posts.collect { state ->
+
+                        when (state) {
+
+                            is PostsState.Idle -> Unit
+
+                            is PostsState.Loading -> {
+                                binding.progressBar.visibility = View.VISIBLE
+                                binding.recyclerView.isEnabled = false
+                            }
+
+                            is PostsState.Success -> {
+                                binding.progressBar.visibility = View.GONE
+                                binding.recyclerView.isEnabled = true
+                                postAdapter.submitList(state.data)
+                            }
+
+                            is PostsState.Error -> {
+                                binding.progressBar.visibility = View.GONE
+                                binding.recyclerView.isEnabled = true
+                                showCustomToast(state.message)
+                            }
+
+                        }
+
+                    }
+
+                }
 
         //---------------------------------------------------------------------
 
-        viewModel.isLoadingLiveData.observe(viewLifecycleOwner) { isLoading ->
-            if (isLoading) {
+        launch {
 
-                binding.progressBar.visibility = View.VISIBLE
-                binding.recyclerView.isEnabled = false
+            viewModel.deletePostStatus.collect { isSuccess ->
 
-            } else {
+                when (isSuccess) {
 
-                binding.progressBar.visibility = View.GONE
-                binding.recyclerView.isEnabled = true
+                    true -> showCustomToast("پست با موفقیت حذف شد")
+                    false -> showCustomToast("خطا در حذف پست")
 
+                    }
+                }
             }
+        }
 
         }
 
-        //---------------------------------------------------------------------
-
-        viewModel.deletePostStatus.observe(viewLifecycleOwner) { isSuccess ->
-
-            if (isSuccess) {
-
-                showCustomToast("پست با موفقیت حذف شد")
-
-
-            } else {
-
-                showCustomToast("خطا در حذف پست")
-
-            }
-        }
 
     }
 
